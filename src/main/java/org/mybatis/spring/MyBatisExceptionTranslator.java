@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 the original author or authors.
+ * Copyright 2010-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package org.mybatis.spring;
 
 import java.sql.SQLException;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 import javax.sql.DataSource;
@@ -41,6 +42,7 @@ public class MyBatisExceptionTranslator implements PersistenceExceptionTranslato
 
   private final Supplier<SQLExceptionTranslator> exceptionTranslatorSupplier;
   private SQLExceptionTranslator exceptionTranslator;
+  private ReentrantLock lock = new ReentrantLock();
 
   /**
    * Creates a new {@code PersistenceExceptionTranslator} instance with {@code SQLErrorCodeSQLExceptionTranslator}.
@@ -74,27 +76,29 @@ public class MyBatisExceptionTranslator implements PersistenceExceptionTranslato
     }
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public DataAccessException translateExceptionIfPossible(RuntimeException e) {
     if (e instanceof PersistenceException) {
       // Batch exceptions come inside another PersistenceException
       // recursion has a risk of infinite loop so better make another if
+      var msg = e.getMessage();
       if (e.getCause() instanceof PersistenceException) {
         e = (PersistenceException) e.getCause();
+        if (msg == null) {
+          msg = e.getMessage();
+        }
       }
       if (e.getCause() instanceof SQLException) {
         this.initExceptionTranslator();
-        String task = e.getMessage() + "\n";
-        SQLException se = (SQLException) e.getCause();
-        DataAccessException dae = this.exceptionTranslator.translate(task, null, se);
+        var task = e.getMessage() + "\n";
+        var se = (SQLException) e.getCause();
+        var dae = this.exceptionTranslator.translate(task, null, se);
         return dae != null ? dae : new UncategorizedSQLException(task, null, se);
-      } else if (e.getCause() instanceof TransactionException) {
+      }
+      if (e.getCause() instanceof TransactionException) {
         throw (TransactionException) e.getCause();
       }
-      return new MyBatisSystemException(e);
+      return new MyBatisSystemException(msg, e);
     }
     return null;
   }
@@ -102,9 +106,14 @@ public class MyBatisExceptionTranslator implements PersistenceExceptionTranslato
   /**
    * Initializes the internal translator reference.
    */
-  private synchronized void initExceptionTranslator() {
-    if (this.exceptionTranslator == null) {
-      this.exceptionTranslator = exceptionTranslatorSupplier.get();
+  private void initExceptionTranslator() {
+    lock.lock();
+    try {
+      if (this.exceptionTranslator == null) {
+        this.exceptionTranslator = exceptionTranslatorSupplier.get();
+      }
+    } finally {
+      lock.unlock();
     }
   }
 

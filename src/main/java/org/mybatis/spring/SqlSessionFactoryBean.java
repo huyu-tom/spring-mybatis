@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 the original author or authors.
+ * Copyright 2010-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,7 +64,6 @@ import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.core.io.support.ResourcePatternResolver;
-import org.springframework.core.type.ClassMetadata;
 import org.springframework.core.type.classreading.CachingMetadataReaderFactory;
 import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy;
@@ -553,24 +552,20 @@ public class SqlSessionFactoryBean
   private <T> T[] appendArrays(T[] oldArrays, T[] newArrays, IntFunction<T[]> generator) {
     if (oldArrays == null) {
       return newArrays;
-    } else {
-      if (newArrays == null) {
-        return oldArrays;
-      } else {
-        List<T> newList = new ArrayList<>(Arrays.asList(oldArrays));
-        newList.addAll(Arrays.asList(newArrays));
-        return newList.toArray(generator.apply(0));
-      }
     }
+    if (newArrays == null) {
+      return oldArrays;
+    }
+    List<T> newList = new ArrayList<>(Arrays.asList(oldArrays));
+    newList.addAll(Arrays.asList(newArrays));
+    return newList.toArray(generator.apply(0));
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void afterPropertiesSet() throws Exception {
     notNull(dataSource, "Property 'dataSource' is required");
     notNull(sqlSessionFactoryBuilder, "Property 'sqlSessionFactoryBuilder' is required");
+    // TODO Review this statement as it seems off!
     state((configuration == null && configLocation == null) || !(configuration != null && configLocation != null),
         "Property 'configuration' and 'configLocation' can not specified with together");
 
@@ -693,8 +688,8 @@ public class SqlSessionFactoryBean
             continue;
           }
           try {
-            XMLMapperBuilder xmlMapperBuilder = new XMLMapperBuilder(mapperLocation.getInputStream(),
-                targetConfiguration, mapperLocation.toString(), targetConfiguration.getSqlFragments());
+            var xmlMapperBuilder = new XMLMapperBuilder(mapperLocation.getInputStream(), targetConfiguration,
+                mapperLocation.toString(), targetConfiguration.getSqlFragments());
             xmlMapperBuilder.parse();
           } catch (Exception e) {
             throw new IOException("Failed to parse mapping resource: '" + mapperLocation + "'", e);
@@ -711,9 +706,6 @@ public class SqlSessionFactoryBean
     return this.sqlSessionFactoryBuilder.build(targetConfiguration);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public SqlSessionFactory getObject() throws Exception {
     if (this.sqlSessionFactory == null) {
@@ -723,25 +715,16 @@ public class SqlSessionFactoryBean
     return this.sqlSessionFactory;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public Class<? extends SqlSessionFactory> getObjectType() {
     return this.sqlSessionFactory == null ? SqlSessionFactory.class : this.sqlSessionFactory.getClass();
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public boolean isSingleton() {
     return true;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void onApplicationEvent(ContextRefreshedEvent event) {
     if (failFast) {
@@ -752,14 +735,14 @@ public class SqlSessionFactoryBean
 
   private Set<Class<?>> scanClasses(String packagePatterns, Class<?> assignableType) throws IOException {
     Set<Class<?>> classes = new HashSet<>();
-    String[] packagePatternArray = tokenizeToStringArray(packagePatterns,
+    var packagePatternArray = tokenizeToStringArray(packagePatterns,
         ConfigurableApplicationContext.CONFIG_LOCATION_DELIMITERS);
     for (String packagePattern : packagePatternArray) {
-      Resource[] resources = RESOURCE_PATTERN_RESOLVER.getResources(ResourcePatternResolver.CLASSPATH_ALL_URL_PREFIX
+      var resources = RESOURCE_PATTERN_RESOLVER.getResources(ResourcePatternResolver.CLASSPATH_ALL_URL_PREFIX
           + ClassUtils.convertClassNameToResourcePath(packagePattern) + "/**/*.class");
       for (Resource resource : resources) {
         try {
-          ClassMetadata classMetadata = METADATA_READER_FACTORY.getMetadataReader(resource).getClassMetadata();
+          var classMetadata = METADATA_READER_FACTORY.getMetadataReader(resource).getClassMetadata();
           Class<?> clazz = Resources.classForName(classMetadata.getClassName());
           if (assignableType == null || assignableType.isAssignableFrom(clazz)) {
             classes.add(clazz);

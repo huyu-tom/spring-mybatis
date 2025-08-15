@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 the original author or authors.
+ * Copyright 2010-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import org.springframework.test.context.web.WebAppConfiguration;
 
 @ExtendWith(SpringExtension.class)
 @WebAppConfiguration
-@SpringJUnitConfig(locations = "file:src/test/java/org/mybatis/spring/submitted/webapp_placeholder/spring.xml")
+@SpringJUnitConfig(locations = "classpath:org/mybatis/spring/submitted/webapp_placeholder/spring.xml")
 class WebappPlaceholderTest {
 
   @Autowired
@@ -41,7 +41,7 @@ class WebappPlaceholderTest {
   @Test
   void testName() {
     Assertions.assertEquals(0, sqlSessionFactory.getConfiguration().getMapperRegistry().getMappers().size());
-    Mapper mapper = applicationContext.getBean(Mapper.class);
+    var mapper = applicationContext.getBean(Mapper.class);
     assertThat(mapper).isNotNull();
     Assertions.assertEquals(1, sqlSessionFactory.getConfiguration().getMapperRegistry().getMappers().size());
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 the original author or authors.
+ * Copyright 2010-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,6 @@ package org.mybatis.spring.batch;
 import static org.springframework.util.Assert.isTrue;
 import static org.springframework.util.Assert.notNull;
 
-import java.util.List;
-
-import org.apache.ibatis.executor.BatchResult;
 import org.apache.ibatis.session.ExecutorType;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -133,9 +130,6 @@ public class MyBatisBatchItemWriter<T> implements ItemWriter<T>, InitializingBea
     notNull(itemToParameterConverter, "A itemToParameterConverter is required.");
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void write(final Chunk<? extends T> items) {
 
@@ -146,7 +140,7 @@ public class MyBatisBatchItemWriter<T> implements ItemWriter<T>, InitializingBea
         sqlSessionTemplate.update(statementId, itemToParameterConverter.convert(item));
       }
 
-      List<BatchResult> results = sqlSessionTemplate.flushStatements();
+      var results = sqlSessionTemplate.flushStatements();
 
       if (assertUpdates) {
         if (results.size() != 1) {
@@ -154,10 +148,10 @@ public class MyBatisBatchItemWriter<T> implements ItemWriter<T>, InitializingBea
               + "Expected 1 but number of BatchResult objects returned was " + results.size());
         }
 
-        int[] updateCounts = results.get(0).getUpdateCounts();
+        var updateCounts = results.get(0).getUpdateCounts();
 
-        for (int i = 0; i < updateCounts.length; i++) {
-          int value = updateCounts[i];
+        for (var i = 0; i < updateCounts.length; i++) {
+          var value = updateCounts[i];
           if (value == 0) {
             throw new EmptyResultDataAccessException("Item " + i + " of " + updateCounts.length
                 + " did not update any rows: [" + items.getItems().get(i) + "]", 1);

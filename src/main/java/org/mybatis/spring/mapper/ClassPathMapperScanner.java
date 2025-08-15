@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 the original author or authors.
+ * Copyright 2010-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package org.mybatis.spring.mapper;
 
 import java.lang.annotation.Annotation;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -38,8 +39,10 @@ import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.context.annotation.ClassPathBeanDefinitionScanner;
 import org.springframework.core.NativeDetector;
+import org.springframework.core.env.Environment;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.core.type.filter.AssignableTypeFilter;
+import org.springframework.core.type.filter.TypeFilter;
 import org.springframework.util.StringUtils;
 
 /**
@@ -85,7 +88,18 @@ public class ClassPathMapperScanner extends ClassPathBeanDefinitionScanner {
   private Class<? extends MapperFactoryBean> mapperFactoryBeanClass = MapperFactoryBean.class;
 
   private String defaultScope;
+  private List<TypeFilter> excludeFilters;
 
+  public ClassPathMapperScanner(BeanDefinitionRegistry registry, Environment environment) {
+    super(registry, false, environment);
+    setIncludeAnnotationConfig(!AotDetector.useGeneratedArtifacts());
+    setPrintWarnLogIfNotFoundMappers(!NativeDetector.inNativeImage());
+  }
+
+  /**
+   * @deprecated Please use the {@link #ClassPathMapperScanner(BeanDefinitionRegistry, Environment)}.
+   */
+  @Deprecated(since = "3.0.4", forRemoval = true)
   public ClassPathMapperScanner(BeanDefinitionRegistry registry) {
     super(registry, false);
     setIncludeAnnotationConfig(!AotDetector.useGeneratedArtifacts());
@@ -132,6 +146,10 @@ public class ClassPathMapperScanner extends ClassPathBeanDefinitionScanner {
 
   public void setMarkerInterface(Class<?> markerInterface) {
     this.markerInterface = markerInterface;
+  }
+
+  public void setExcludeFilters(List<TypeFilter> excludeFilters) {
+    this.excludeFilters = excludeFilters;
   }
 
   public void setSqlSessionFactory(SqlSessionFactory sqlSessionFactory) {
@@ -190,7 +208,7 @@ public class ClassPathMapperScanner extends ClassPathBeanDefinitionScanner {
    * that extends a markerInterface or/and those annotated with the annotationClass
    */
   public void registerFilters() {
-    boolean acceptAllInterfaces = true;
+    var acceptAllInterfaces = true;
 
     // if specified, use the given annotation and / or marker interface
     if (this.annotationClass != null) {
@@ -216,9 +234,16 @@ public class ClassPathMapperScanner extends ClassPathBeanDefinitionScanner {
 
     // exclude package-info.java
     addExcludeFilter((metadataReader, metadataReaderFactory) -> {
-      String className = metadataReader.getClassMetadata().getClassName();
+      var className = metadataReader.getClassMetadata().getClassName();
       return className.endsWith("package-info");
     });
+
+    // exclude types declared by MapperScan.excludeFilters
+    if (excludeFilters != null && excludeFilters.size() > 0) {
+      for (TypeFilter excludeFilter : excludeFilters) {
+        addExcludeFilter(excludeFilter);
+      }
+    }
   }
 
   /**
@@ -227,7 +252,7 @@ public class ClassPathMapperScanner extends ClassPathBeanDefinitionScanner {
    */
   @Override
   public Set<BeanDefinitionHolder> doScan(String... basePackages) {
-    Set<BeanDefinitionHolder> beanDefinitions = super.doScan(basePackages);
+    var beanDefinitions = super.doScan(basePackages);
 
     if (beanDefinitions.isEmpty()) {
       if (printWarnLogIfNotFoundMappers) {
@@ -243,10 +268,10 @@ public class ClassPathMapperScanner extends ClassPathBeanDefinitionScanner {
 
   private void processBeanDefinitions(Set<BeanDefinitionHolder> beanDefinitions) {
     AbstractBeanDefinition definition;
-    BeanDefinitionRegistry registry = getRegistry();
+    var registry = getRegistry();
     for (BeanDefinitionHolder holder : beanDefinitions) {
       definition = (AbstractBeanDefinition) holder.getBeanDefinition();
-      boolean scopedProxy = false;
+      var scopedProxy = false;
       if (ScopedProxyFactoryBean.class.getName().equals(definition.getBeanClassName())) {
         definition = (AbstractBeanDefinition) Optional
             .ofNullable(((RootBeanDefinition) definition).getDecoratedDefinition())
@@ -254,7 +279,7 @@ public class ClassPathMapperScanner extends ClassPathBeanDefinitionScanner {
                 "The target bean definition of scoped proxy bean not found. Root bean definition[" + holder + "]"));
         scopedProxy = true;
       }
-      String beanClassName = definition.getBeanClassName();
+      var beanClassName = definition.getBeanClassName();
       LOGGER.debug(() -> "Creating MapperFactoryBean with name '" + holder.getBeanName() + "' and '" + beanClassName
           + "' mapperInterface");
 
@@ -262,8 +287,12 @@ public class ClassPathMapperScanner extends ClassPathBeanDefinitionScanner {
       // but, the actual class of the bean is MapperFactoryBean
       definition.getConstructorArgumentValues().addGenericArgumentValue(beanClassName); // issue #59
       try {
+        Class<?> beanClass = Resources.classForName(beanClassName);
+        // Attribute for MockitoPostProcessor
+        // https://github.com/mybatis/spring-boot-starter/issues/475
+        definition.setAttribute(FACTORY_BEAN_OBJECT_TYPE, beanClass);
         // for spring-native
-        definition.getPropertyValues().add("mapperInterface", Resources.classForName(beanClassName));
+        definition.getPropertyValues().add("mapperInterface", beanClass);
       } catch (ClassNotFoundException ignore) {
         // ignore
       }
@@ -272,11 +301,7 @@ public class ClassPathMapperScanner extends ClassPathBeanDefinitionScanner {
 
       definition.getPropertyValues().add("addToConfig", this.addToConfig);
 
-      // Attribute for MockitoPostProcessor
-      // https://github.com/mybatis/spring-boot-starter/issues/475
-      definition.setAttribute(FACTORY_BEAN_OBJECT_TYPE, beanClassName);
-
-      boolean explicitFactoryUsed = false;
+      var explicitFactoryUsed = false;
       if (StringUtils.hasText(this.sqlSessionFactoryBeanName)) {
         definition.getPropertyValues().add("sqlSessionFactory",
             new RuntimeBeanReference(this.sqlSessionFactoryBeanName));
@@ -319,7 +344,7 @@ public class ClassPathMapperScanner extends ClassPathBeanDefinitionScanner {
       }
 
       if (!definition.isSingleton()) {
-        BeanDefinitionHolder proxyHolder = ScopedProxyUtils.createScopedProxy(holder, registry, true);
+        var proxyHolder = ScopedProxyUtils.createScopedProxy(holder, registry, true);
         if (registry.containsBeanDefinition(proxyHolder.getBeanName())) {
           registry.removeBeanDefinition(proxyHolder.getBeanName());
         }
@@ -329,26 +354,19 @@ public class ClassPathMapperScanner extends ClassPathBeanDefinitionScanner {
     }
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   protected boolean isCandidateComponent(AnnotatedBeanDefinition beanDefinition) {
     return beanDefinition.getMetadata().isInterface() && beanDefinition.getMetadata().isIndependent();
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   protected boolean checkCandidate(String beanName, BeanDefinition beanDefinition) {
     if (super.checkCandidate(beanName, beanDefinition)) {
       return true;
-    } else {
-      LOGGER.warn(() -> "Skipping MapperFactoryBean with name '" + beanName + "' and '"
-          + beanDefinition.getBeanClassName() + "' mapperInterface" + ". Bean already defined with the same name!");
-      return false;
     }
+    LOGGER.warn(() -> "Skipping MapperFactoryBean with name '" + beanName + "' and '"
+        + beanDefinition.getBeanClassName() + "' mapperInterface" + ". Bean already defined with the same name!");
+    return false;
   }
 
 }

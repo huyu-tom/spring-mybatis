@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 the original author or authors.
+ * Copyright 2010-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,10 +41,7 @@ import org.apache.ibatis.plugin.Intercepts;
 import org.apache.ibatis.plugin.Invocation;
 import org.apache.ibatis.plugin.Signature;
 import org.apache.ibatis.reflection.factory.DefaultObjectFactory;
-import org.apache.ibatis.reflection.factory.ObjectFactory;
 import org.apache.ibatis.reflection.wrapper.DefaultObjectWrapperFactory;
-import org.apache.ibatis.reflection.wrapper.ObjectWrapperFactory;
-import org.apache.ibatis.scripting.LanguageDriverRegistry;
 import org.apache.ibatis.scripting.defaults.RawLanguageDriver;
 import org.apache.ibatis.scripting.xmltags.XMLLanguageDriver;
 import org.apache.ibatis.session.Configuration;
@@ -55,10 +52,8 @@ import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
 import org.apache.ibatis.type.BaseTypeHandler;
 import org.apache.ibatis.type.EnumOrdinalTypeHandler;
 import org.apache.ibatis.type.JdbcType;
-import org.apache.ibatis.type.TypeAliasRegistry;
 import org.apache.ibatis.type.TypeException;
 import org.apache.ibatis.type.TypeHandler;
-import org.apache.ibatis.type.TypeHandlerRegistry;
 import org.junit.jupiter.api.Test;
 import org.mybatis.core.jdk.type.AtomicNumberTypeHandler;
 import org.mybatis.spring.transaction.SpringManagedTransactionFactory;
@@ -67,6 +62,7 @@ import org.mybatis.spring.type.DummyTypeHandler;
 import org.mybatis.spring.type.SuperType;
 import org.mybatis.spring.type.TypeHandlerFactory;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 
 class SqlSessionFactoryBeanTest {
 
@@ -151,11 +147,11 @@ class SqlSessionFactoryBeanTest {
   void testDefaultConfigurationWithConfigurationProperties() throws Exception {
     setupFactoryBean();
 
-    Properties configurationProperties = new Properties();
+    var configurationProperties = new Properties();
     configurationProperties.put("username", "dev");
     factoryBean.setConfigurationProperties(configurationProperties);
 
-    SqlSessionFactory factory = factoryBean.getObject();
+    var factory = factoryBean.getObject();
     assertConfig(factory, SpringManagedTransactionFactory.class);
     assertThat(factory.getConfiguration().getVariables().size()).isEqualTo(1);
     assertThat(factory.getConfiguration().getVariables().get("username")).isEqualTo("dev");
@@ -165,14 +161,14 @@ class SqlSessionFactoryBeanTest {
   void testSetConfiguration() throws Exception {
     setupFactoryBean();
 
-    Configuration customConfiguration = new Configuration();
+    var customConfiguration = new Configuration();
     customConfiguration.setCacheEnabled(false);
     customConfiguration.setUseGeneratedKeys(true);
     customConfiguration.setDefaultExecutorType(ExecutorType.REUSE);
     customConfiguration.setVfsImpl(JBoss6VFS.class);
     factoryBean.setConfiguration(customConfiguration);
 
-    SqlSessionFactory factory = factoryBean.getObject();
+    var factory = factoryBean.getObject();
 
     assertThat(factory.getConfiguration().getEnvironment().getId())
         .isEqualTo(SqlSessionFactoryBean.class.getSimpleName());
@@ -190,15 +186,15 @@ class SqlSessionFactoryBeanTest {
   void testSpecifyVariablesOnly() throws Exception {
     setupFactoryBean();
 
-    Configuration customConfiguration = new Configuration();
-    Properties variables = new Properties();
+    var customConfiguration = new Configuration();
+    var variables = new Properties();
     variables.put("username", "sa");
     customConfiguration.setVariables(variables);
     factoryBean.setConfiguration(customConfiguration);
 
     factoryBean.setConfigurationProperties(null);
 
-    SqlSessionFactory factory = factoryBean.getObject();
+    var factory = factoryBean.getObject();
 
     assertThat(factory.getConfiguration().getVariables().size()).isEqualTo(1);
     assertThat(factory.getConfiguration().getVariables().get("username")).isEqualTo("sa");
@@ -208,19 +204,19 @@ class SqlSessionFactoryBeanTest {
   void testSpecifyVariablesAndConfigurationProperties() throws Exception {
     setupFactoryBean();
 
-    Configuration customConfiguration = new Configuration();
-    Properties variables = new Properties();
+    var customConfiguration = new Configuration();
+    var variables = new Properties();
     variables.put("url", "jdbc:localhost/test");
     variables.put("username", "sa");
     customConfiguration.setVariables(variables);
     factoryBean.setConfiguration(customConfiguration);
 
-    Properties configurationProperties = new Properties();
+    var configurationProperties = new Properties();
     configurationProperties.put("username", "dev");
     configurationProperties.put("password", "Passw0rd");
     factoryBean.setConfigurationProperties(configurationProperties);
 
-    SqlSessionFactory factory = factoryBean.getObject();
+    var factory = factoryBean.getObject();
 
     assertThat(factory.getConfiguration().getVariables().size()).isEqualTo(3);
     assertThat(factory.getConfiguration().getVariables().get("url")).isEqualTo("jdbc:localhost/test");
@@ -232,15 +228,15 @@ class SqlSessionFactoryBeanTest {
   void testSpecifyConfigurationPropertiesOnly() throws Exception {
     setupFactoryBean();
 
-    Configuration customConfiguration = new Configuration();
+    var customConfiguration = new Configuration();
     customConfiguration.setVariables(null);
     factoryBean.setConfiguration(customConfiguration);
 
-    Properties configurationProperties = new Properties();
+    var configurationProperties = new Properties();
     configurationProperties.put("username", "dev");
     factoryBean.setConfigurationProperties(configurationProperties);
 
-    SqlSessionFactory factory = factoryBean.getObject();
+    var factory = factoryBean.getObject();
 
     assertThat(factory.getConfiguration().getVariables().size()).isEqualTo(1);
     assertThat(factory.getConfiguration().getVariables().get("username")).isEqualTo("dev");
@@ -250,13 +246,13 @@ class SqlSessionFactoryBeanTest {
   void testNotSpecifyVariableAndConfigurationProperties() throws Exception {
     setupFactoryBean();
 
-    Configuration customConfiguration = new Configuration();
+    var customConfiguration = new Configuration();
     customConfiguration.setVariables(null);
     factoryBean.setConfiguration(customConfiguration);
 
     factoryBean.setConfigurationProperties(null);
 
-    SqlSessionFactory factory = factoryBean.getObject();
+    var factory = factoryBean.getObject();
 
     assertThat(factory.getConfiguration().getVariables()).isNull();
   }
@@ -274,10 +270,9 @@ class SqlSessionFactoryBeanTest {
   void testSetConfigLocation() throws Exception {
     setupFactoryBean();
 
-    factoryBean
-        .setConfigLocation(new org.springframework.core.io.ClassPathResource("org/mybatis/spring/mybatis-config.xml"));
+    factoryBean.setConfigLocation(new ClassPathResource("org/mybatis/spring/mybatis-config.xml"));
 
-    SqlSessionFactory factory = factoryBean.getObject();
+    var factory = factoryBean.getObject();
 
     assertThat(factory.getConfiguration().getEnvironment().getId())
         .isEqualTo(SqlSessionFactoryBean.class.getSimpleName());
@@ -304,8 +299,7 @@ class SqlSessionFactoryBeanTest {
     setupFactoryBean();
 
     factoryBean.setConfiguration(new Configuration());
-    factoryBean
-        .setConfigLocation(new org.springframework.core.io.ClassPathResource("org/mybatis/spring/mybatis-config.xml"));
+    factoryBean.setConfigLocation(new ClassPathResource("org/mybatis/spring/mybatis-config.xml"));
 
     Throwable e = assertThrows(IllegalStateException.class, factoryBean::getObject);
     assertThat(e.getMessage())
@@ -318,7 +312,7 @@ class SqlSessionFactoryBeanTest {
 
     factoryBean.setMapperLocations(new ClassPathResource("org/mybatis/spring/TestMapper.xml"));
 
-    SqlSessionFactory factory = factoryBean.getObject();
+    var factory = factoryBean.getObject();
 
     // one for 'includedSql' and another for 'org.mybatis.spring.TestMapper.includedSql'
     assertThat(factory.getConfiguration().getSqlFragments().size()).isEqualTo(2);
@@ -344,7 +338,7 @@ class SqlSessionFactoryBeanTest {
   @Test
   void testMapperLocationsWithNullEntry() throws Exception {
     setupFactoryBean();
-    factoryBean.setMapperLocations(new org.springframework.core.io.Resource[] { null });
+    factoryBean.setMapperLocations(new Resource[] { null });
 
     assertDefaultConfig(factoryBean.getObject());
   }
@@ -354,7 +348,7 @@ class SqlSessionFactoryBeanTest {
     setupFactoryBean();
     factoryBean.setTypeHandlers(new DummyTypeHandler());
 
-    TypeHandlerRegistry typeHandlerRegistry = factoryBean.getObject().getConfiguration().getTypeHandlerRegistry();
+    var typeHandlerRegistry = factoryBean.getObject().getConfiguration().getTypeHandlerRegistry();
     assertThat(typeHandlerRegistry.hasTypeHandler(BigInteger.class)).isTrue();
   }
 
@@ -363,7 +357,7 @@ class SqlSessionFactoryBeanTest {
     setupFactoryBean();
 
     factoryBean.setTypeAliases(DummyTypeAlias.class);
-    TypeAliasRegistry typeAliasRegistry = factoryBean.getObject().getConfiguration().getTypeAliasRegistry();
+    var typeAliasRegistry = factoryBean.getObject().getConfiguration().getTypeAliasRegistry();
     typeAliasRegistry.resolveAlias("testAlias");
   }
 
@@ -372,7 +366,7 @@ class SqlSessionFactoryBeanTest {
     setupFactoryBean();
     factoryBean.setTypeAliasesPackage("org.mybatis.spring.type, org.mybatis.spring.scan");
 
-    TypeAliasRegistry typeAliasRegistry = factoryBean.getObject().getConfiguration().getTypeAliasRegistry();
+    var typeAliasRegistry = factoryBean.getObject().getConfiguration().getTypeAliasRegistry();
     System.out.println(typeAliasRegistry.getTypeAliases().keySet());
     assertThat(typeAliasRegistry.getTypeAliases().size()).isEqualTo(89);
     typeAliasRegistry.resolveAlias("testAlias");
@@ -392,7 +386,7 @@ class SqlSessionFactoryBeanTest {
     factoryBean.setTypeAliasesSuperType(SuperType.class);
     factoryBean.setTypeAliasesPackage("org.mybatis.*.type");
 
-    TypeAliasRegistry typeAliasRegistry = factoryBean.getObject().getConfiguration().getTypeAliasRegistry();
+    var typeAliasRegistry = factoryBean.getObject().getConfiguration().getTypeAliasRegistry();
     typeAliasRegistry.resolveAlias("testAlias2");
     typeAliasRegistry.resolveAlias("superType");
 
@@ -405,7 +399,7 @@ class SqlSessionFactoryBeanTest {
     setupFactoryBean();
     factoryBean.setTypeAliasesPackage("org.mybatis.spring.type, org.*.spring.type");
 
-    TypeAliasRegistry typeAliasRegistry = factoryBean.getObject().getConfiguration().getTypeAliasRegistry();
+    var typeAliasRegistry = factoryBean.getObject().getConfiguration().getTypeAliasRegistry();
     typeAliasRegistry.resolveAlias("testAlias");
     typeAliasRegistry.resolveAlias("testAlias2");
     typeAliasRegistry.resolveAlias("dummyTypeHandler");
@@ -417,7 +411,7 @@ class SqlSessionFactoryBeanTest {
     setupFactoryBean();
     factoryBean.setTypeHandlersPackage("org.mybatis.**.type");
 
-    TypeHandlerRegistry typeHandlerRegistry = factoryBean.getObject().getConfiguration().getTypeHandlerRegistry();
+    var typeHandlerRegistry = factoryBean.getObject().getConfiguration().getTypeHandlerRegistry();
     assertThat(typeHandlerRegistry.hasTypeHandler(BigInteger.class)).isTrue();
     assertThat(typeHandlerRegistry.hasTypeHandler(BigDecimal.class)).isTrue();
     assertThat(typeHandlerRegistry.getTypeHandler(UUID.class)).isInstanceOf(TypeHandlerFactory.InnerTypeHandler.class);
@@ -430,7 +424,7 @@ class SqlSessionFactoryBeanTest {
     setupFactoryBean();
     factoryBean.setTypeHandlersPackage("org.mybatis.spring.type, org.mybatis.*.type");
 
-    TypeHandlerRegistry typeHandlerRegistry = factoryBean.getObject().getConfiguration().getTypeHandlerRegistry();
+    var typeHandlerRegistry = factoryBean.getObject().getConfiguration().getTypeHandlerRegistry();
     assertThat(typeHandlerRegistry.hasTypeHandler(BigInteger.class)).isTrue();
     assertThat(typeHandlerRegistry.hasTypeHandler(BigDecimal.class)).isTrue();
   }
@@ -440,7 +434,7 @@ class SqlSessionFactoryBeanTest {
     setupFactoryBean();
     factoryBean.setDefaultEnumTypeHandler(EnumOrdinalTypeHandler.class);
 
-    TypeHandlerRegistry typeHandlerRegistry = factoryBean.getObject().getConfiguration().getTypeHandlerRegistry();
+    var typeHandlerRegistry = factoryBean.getObject().getConfiguration().getTypeHandlerRegistry();
     assertThat(typeHandlerRegistry.getTypeHandler(MyEnum.class)).isInstanceOf(EnumOrdinalTypeHandler.class);
   }
 
@@ -449,7 +443,7 @@ class SqlSessionFactoryBeanTest {
     setupFactoryBean();
     factoryBean.setObjectFactory(new TestObjectFactory());
 
-    ObjectFactory objectFactory = factoryBean.getObject().getConfiguration().getObjectFactory();
+    var objectFactory = factoryBean.getObject().getConfiguration().getObjectFactory();
     assertThat(objectFactory).isInstanceOf(TestObjectFactory.class);
   }
 
@@ -458,14 +452,14 @@ class SqlSessionFactoryBeanTest {
     setupFactoryBean();
     factoryBean.setObjectWrapperFactory(new TestObjectWrapperFactory());
 
-    ObjectWrapperFactory objectWrapperFactory = factoryBean.getObject().getConfiguration().getObjectWrapperFactory();
+    var objectWrapperFactory = factoryBean.getObject().getConfiguration().getObjectWrapperFactory();
     assertThat(objectWrapperFactory).isInstanceOf(TestObjectWrapperFactory.class);
   }
 
   @Test
   void testAddCache() {
     setupFactoryBean();
-    PerpetualCache cache = new PerpetualCache("test-cache");
+    var cache = new PerpetualCache("test-cache");
     this.factoryBean.setCache(cache);
     assertThat(this.factoryBean.getCache().getId()).isEqualTo("test-cache");
   }
@@ -474,7 +468,7 @@ class SqlSessionFactoryBeanTest {
   void testScriptingLanguageDriverEmpty() throws Exception {
     setupFactoryBean();
     this.factoryBean.setScriptingLanguageDrivers();
-    LanguageDriverRegistry registry = this.factoryBean.getObject().getConfiguration().getLanguageRegistry();
+    var registry = this.factoryBean.getObject().getConfiguration().getLanguageRegistry();
     assertThat(registry.getDefaultDriver()).isInstanceOf(XMLLanguageDriver.class);
     assertThat(registry.getDefaultDriverClass()).isEqualTo(XMLLanguageDriver.class);
   }
@@ -483,7 +477,7 @@ class SqlSessionFactoryBeanTest {
   void testScriptingLanguageDriver() throws Exception {
     setupFactoryBean();
     this.factoryBean.setScriptingLanguageDrivers(new MyLanguageDriver1(), new MyLanguageDriver2());
-    LanguageDriverRegistry registry = this.factoryBean.getObject().getConfiguration().getLanguageRegistry();
+    var registry = this.factoryBean.getObject().getConfiguration().getLanguageRegistry();
     assertThat(registry.getDefaultDriver()).isInstanceOf(XMLLanguageDriver.class);
     assertThat(registry.getDefaultDriverClass()).isEqualTo(XMLLanguageDriver.class);
     assertThat(registry.getDriver(MyLanguageDriver1.class)).isNotNull();
@@ -497,7 +491,7 @@ class SqlSessionFactoryBeanTest {
     setupFactoryBean();
     this.factoryBean.setScriptingLanguageDrivers(new MyLanguageDriver1(), new MyLanguageDriver2());
     this.factoryBean.setDefaultScriptingLanguageDriver(MyLanguageDriver1.class);
-    LanguageDriverRegistry registry = this.factoryBean.getObject().getConfiguration().getLanguageRegistry();
+    var registry = this.factoryBean.getObject().getConfiguration().getLanguageRegistry();
     assertThat(registry.getDefaultDriver()).isInstanceOf(MyLanguageDriver1.class);
     assertThat(registry.getDefaultDriverClass()).isEqualTo(MyLanguageDriver1.class);
     assertThat(registry.getDriver(MyLanguageDriver1.class)).isNotNull();
@@ -527,10 +521,10 @@ class SqlSessionFactoryBeanTest {
     this.factoryBean.addTypeHandlers(null);
     this.factoryBean.addTypeAliases(null);
     this.factoryBean.addMapperLocations(null);
-    SqlSessionFactory factory = this.factoryBean.getObject();
-    LanguageDriverRegistry languageDriverRegistry = factory.getConfiguration().getLanguageRegistry();
-    TypeHandlerRegistry typeHandlerRegistry = factory.getConfiguration().getTypeHandlerRegistry();
-    TypeAliasRegistry typeAliasRegistry = factory.getConfiguration().getTypeAliasRegistry();
+    var factory = this.factoryBean.getObject();
+    var languageDriverRegistry = factory.getConfiguration().getLanguageRegistry();
+    var typeHandlerRegistry = factory.getConfiguration().getTypeHandlerRegistry();
+    var typeAliasRegistry = factory.getConfiguration().getTypeAliasRegistry();
     assertThat(languageDriverRegistry.getDriver(MyLanguageDriver1.class)).isNotNull();
     assertThat(languageDriverRegistry.getDriver(MyLanguageDriver2.class)).isNotNull();
     assertThat(typeHandlerRegistry.getTypeHandlers().stream().map(TypeHandler::getClass).map(Class::getSimpleName)
@@ -556,10 +550,10 @@ class SqlSessionFactoryBeanTest {
     this.factoryBean.addTypeHandlers();
     this.factoryBean.addTypeAliases();
     this.factoryBean.addMapperLocations();
-    SqlSessionFactory factory = this.factoryBean.getObject();
-    LanguageDriverRegistry languageDriverRegistry = factory.getConfiguration().getLanguageRegistry();
-    TypeHandlerRegistry typeHandlerRegistry = factory.getConfiguration().getTypeHandlerRegistry();
-    TypeAliasRegistry typeAliasRegistry = factory.getConfiguration().getTypeAliasRegistry();
+    var factory = this.factoryBean.getObject();
+    var languageDriverRegistry = factory.getConfiguration().getLanguageRegistry();
+    var typeHandlerRegistry = factory.getConfiguration().getTypeHandlerRegistry();
+    var typeAliasRegistry = factory.getConfiguration().getTypeAliasRegistry();
     assertThat(languageDriverRegistry.getDriver(MyLanguageDriver1.class)).isNull();
     assertThat(languageDriverRegistry.getDriver(MyLanguageDriver2.class)).isNull();
     assertThat(typeHandlerRegistry.getTypeHandlers()).hasSize(40);
@@ -576,10 +570,10 @@ class SqlSessionFactoryBeanTest {
     this.factoryBean.addTypeHandlers(null);
     this.factoryBean.addTypeAliases(null);
     this.factoryBean.addMapperLocations(null);
-    SqlSessionFactory factory = this.factoryBean.getObject();
-    LanguageDriverRegistry languageDriverRegistry = factory.getConfiguration().getLanguageRegistry();
-    TypeHandlerRegistry typeHandlerRegistry = factory.getConfiguration().getTypeHandlerRegistry();
-    TypeAliasRegistry typeAliasRegistry = factory.getConfiguration().getTypeAliasRegistry();
+    var factory = this.factoryBean.getObject();
+    var languageDriverRegistry = factory.getConfiguration().getLanguageRegistry();
+    var typeHandlerRegistry = factory.getConfiguration().getTypeHandlerRegistry();
+    var typeAliasRegistry = factory.getConfiguration().getTypeAliasRegistry();
     assertThat(languageDriverRegistry.getDriver(MyLanguageDriver1.class)).isNull();
     assertThat(languageDriverRegistry.getDriver(MyLanguageDriver2.class)).isNull();
     assertThat(typeHandlerRegistry.getTypeHandlers()).hasSize(40);
@@ -683,7 +677,7 @@ class SqlSessionFactoryBeanTest {
   private static class MyTypeHandler3 extends MyBaseTypeHandler {
   }
 
-  private static enum MyEnum {
+  private enum MyEnum {
   }
 
 }

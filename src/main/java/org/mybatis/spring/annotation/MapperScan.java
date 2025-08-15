@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 the original author or authors.
+ * Copyright 2010-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.mybatis.spring.mapper.MapperFactoryBean;
 import org.mybatis.spring.mapper.MapperScannerConfigurer;
 import org.springframework.beans.factory.support.AbstractBeanDefinition;
 import org.springframework.beans.factory.support.BeanNameGenerator;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.annotation.AliasFor;
 
@@ -195,5 +196,14 @@ public @interface MapperScan {
    * @return a flag that whether execute a property placeholder processing or not
    */
   boolean processPropertyPlaceHolders() default true;
+
+  /**
+   * Specifies which types are not eligible for mapper scanning.
+   *
+   * @since 3.0.4
+   *
+   * @return array of customized mapper excludeFilter
+   */
+  ComponentScan.Filter[] excludeFilters() default {};
 
 }
